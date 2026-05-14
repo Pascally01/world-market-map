@@ -98,6 +98,9 @@ export default function Home() {
   const [loadingMarket, setLoadingMarket] = useState(false);
   const [loadingNews, setLoadingNews] = useState(false);
   const [error, setError] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
 
   useEffect(() => {
     if (selectedContinent === 'North America') {
@@ -147,6 +150,34 @@ export default function Home() {
     return '#2E75B6';
   };
 
+  const sendMessage = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setChatMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+    setChatLoading(true);
+
+    const marketContext = marketData
+      ? marketData.indices.map((i) => `${i.name}: ${i.value} (${i.change})`).join(', ')
+      : 'No market data loaded';
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage, marketContext }),
+      });
+
+      const data = await response.json();
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
+    } catch {
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I could not get a response. Please try again.' }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   return (
     <main className='min-h-screen bg-gray-900 flex flex-col items-center p-8'>
       <h1 className='text-white text-4xl font-bold mb-2'>World Market Map</h1>
@@ -159,7 +190,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className='flex w-full max-w-7xl gap-6'>
+      <div className='flex w-full max-w-7xl gap-6 items-start'>
 
         {/* Map */}
         <div className='flex-1'>
@@ -187,10 +218,10 @@ export default function Home() {
 
         {/* Right Panel */}
         {selectedContinent && (
-          <div className='w-80 flex flex-col gap-4 self-start mt-8'>
+          <div className='flex flex-row gap-4 self-start mt-8 w-96'>
 
             {/* Market Data Card */}
-            <div className='bg-gray-800 rounded-2xl p-6'>
+            <div className='bg-gray-800 rounded-2xl p-6 w-64'>
               <h2 className='text-white text-xl font-bold mb-4'>
                 {selectedContinent === 'North America' ? '🇺🇸 US Stock Market' : `${selectedContinent} Markets`}
               </h2>
@@ -219,7 +250,7 @@ export default function Home() {
 
             {/* News Card */}
             {selectedContinent === 'North America' && (
-              <div className='bg-gray-800 rounded-2xl p-6'>
+              <div className='bg-gray-800 rounded-2xl p-6 w-48'>
                 <h2 className='text-white text-xl font-bold mb-4'>📰 Latest Market News</h2>
 
                 {loadingNews && <p className='text-gray-400 text-sm'>Loading news...</p>}
@@ -250,6 +281,82 @@ export default function Home() {
           </div>
         )}
       </div>
+    {/* AI Chatbot */}
+      {selectedContinent === 'North America' && (
+        <div className='w-full max-w-7xl mt-6'>
+          <div className='bg-gray-800 rounded-2xl p-6'>
+            <h2 className='text-white text-xl font-bold mb-4'>🤖 Ask Claude — Market AI</h2>
+            
+            {/* Chat messages */}
+            <div className='flex flex-col gap-3 mb-4 max-h-64 overflow-y-auto'>
+              {chatMessages.length === 0 && (
+                <p className='text-gray-400 text-sm'>Ask me anything about the US market, stocks, or financial news!</p>
+              )}
+              {chatMessages.map((msg, index) => (
+                <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`rounded-xl px-4 py-2 max-w-2xl text-sm ${
+                    msg.role === 'user' 
+                      ? 'bg-orange-600 text-white' 
+                      : 'bg-gray-700 text-gray-100'
+                  }`}>
+                    {msg.role === 'assistant' ? (
+                      <div className='flex flex-col gap-1'>
+                        {msg.content.split('\n').map((line, i) => {
+                          if (line.startsWith('- ')) {
+                            return (
+                              <div key={i} className='flex gap-2'>
+                                <span className='text-orange-400 mt-0.5'>•</span>
+                                <span>{line.substring(2)}</span>
+                              </div>
+                            );
+                          }
+                          if (line.startsWith('Bottom Line:')) {
+                            return (
+                              <div key={i} className='mt-2 pt-2 border-t border-gray-600 font-semibold text-orange-300'>
+                                {line}
+                              </div>
+                            );
+                          }
+                          if (line.trim() === '') return null;
+                          return <p key={i}>{line}</p>;
+                        })}
+                      </div>
+                    ) : (
+                      msg.content
+                    )}
+                  </div>
+                </div>
+              ))}
+              {chatLoading && (
+                <div className='flex justify-start'>
+                  <div className='bg-gray-700 text-gray-400 rounded-xl px-4 py-2 text-sm'>
+                    Claude is thinking...
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chat input */}
+            <div className='flex gap-3'>
+              <input
+                type='text'
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                placeholder='Ask about the market...'
+                className='flex-1 bg-gray-700 text-white rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-500'
+              />
+              <button
+                onClick={sendMessage}
+                disabled={chatLoading}
+                className='bg-orange-600 hover:bg-orange-500 text-white rounded-xl px-6 py-2 text-sm font-semibold disabled:opacity-50'
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

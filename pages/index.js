@@ -102,6 +102,7 @@ const CONTINENT_FLAGS = {
 
 export default function Home() {
   const [selectedContinent, setSelectedContinent] = useState(null);
+  const [hoveredContinent, setHoveredContinent] = useState(null);
   const [marketData, setMarketData] = useState(null);
   const [newsData, setNewsData] = useState(null);
   const [loadingMarket, setLoadingMarket] = useState(false);
@@ -142,14 +143,17 @@ export default function Home() {
     setChatMessages([]);
   };
 
-  const getCountryColor = (geo) => {
-    const country = geo.properties.name;
-    const continent = CONTINENT_MAP[country];
-    if (continent && continent === selectedContinent) {
-      return CONTINENT_COLORS[continent] || '#4FC3F7';
-    }
-    return '#1E3A5F';
-  };
+ const getCountryColor = (geo) => {
+  const country = geo.properties.name;
+  const continent = CONTINENT_MAP[country];
+  if (!continent) return '#1E3A5F';
+  if (continent === selectedContinent) return CONTINENT_COLORS[continent];
+  if (continent === hoveredContinent) {
+    const base = CONTINENT_COLORS[continent] || '#4FC3F7';
+    return base + 'AA'; // semi-transparent on hover
+  }
+  return '#1E3A5F';
+};
 
   const sendMessage = async () => {
     if (!chatInput.trim() || chatLoading) return;
@@ -223,11 +227,16 @@ export default function Home() {
                     <Geography
                       key={geo.rsmKey}
                       geography={geo}
+                      onMouseEnter={() => {
+                        const continent = CONTINENT_MAP[geo.properties.name];
+                        if (continent) setHoveredContinent(continent);
+                      }}
+                      onMouseLeave={() => setHoveredContinent(null)}
                       onClick={() => handleCountryClick(geo)}
                       style={{
                         default: { fill: getCountryColor(geo), stroke: '#0D1321', strokeWidth: 0.5, outline: 'none' },
-                        hover: { fill: '#60A5FA', cursor: 'pointer', outline: 'none' },
-                        pressed: { fill: '#1E40AF', outline: 'none' },
+                        hover: { fill: getCountryColor(geo), cursor: 'pointer', outline: 'none' },
+                        pressed: { fill: getCountryColor(geo), outline: 'none' },
                       }}
                     />
                   ))

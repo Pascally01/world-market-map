@@ -1,5 +1,5 @@
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
@@ -83,12 +83,21 @@ const CONTINENT_MAP = {
 };
 
 const CONTINENT_COLORS = {
-  'North America': '#E65100',
-  'South America': '#2E7D32',
-  'Europe': '#1565C0',
-  'Asia': '#6A1B9A',
-  'Africa': '#F9A825',
-  'Oceania': '#00838F',
+  'North America': '#F97316',
+  'South America': '#22C55E',
+  'Europe': '#3B82F6',
+  'Asia': '#A855F7',
+  'Africa': '#EAB308',
+  'Oceania': '#06B6D4',
+};
+
+const CONTINENT_FLAGS = {
+  'North America': '🇺🇸',
+  'South America': '🌎',
+  'Europe': '🇪🇺',
+  'Asia': '🌏',
+  'Africa': '🌍',
+  'Oceania': '🌊',
 };
 
 export default function Home() {
@@ -97,48 +106,40 @@ export default function Home() {
   const [newsData, setNewsData] = useState(null);
   const [loadingMarket, setLoadingMarket] = useState(false);
   const [loadingNews, setLoadingNews] = useState(false);
-  const [error, setError] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const chatEndRef = useRef(null);
 
   useEffect(() => {
     if (selectedContinent === 'North America') {
-      // Fetch market data
       setLoadingMarket(true);
-      setError(null);
-      fetch('/api/market')
+      fetch('/api/markets')
         .then((res) => res.json())
-        .then((data) => {
-          setMarketData(data);
-          setLoadingMarket(false);
-        })
-        .catch(() => {
-          setError('Failed to load market data');
-          setLoadingMarket(false);
-        });
+        .then((data) => { setMarketData(data); setLoadingMarket(false); })
+        .catch(() => setLoadingMarket(false));
 
-      // Fetch news data
       setLoadingNews(true);
       fetch('/api/news')
         .then((res) => res.json())
-        .then((data) => {
-          setNewsData(data);
-          setLoadingNews(false);
-        })
-        .catch(() => {
-          setLoadingNews(false);
-        });
+        .then((data) => { setNewsData(data); setLoadingNews(false); })
+        .catch(() => setLoadingNews(false));
     } else {
       setMarketData(null);
       setNewsData(null);
     }
   }, [selectedContinent]);
 
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
   const handleCountryClick = (geo) => {
     const country = geo.properties.name;
     const continent = CONTINENT_MAP[country] || null;
     setSelectedContinent(continent);
+    setChatMessages([]);
   };
 
   const getCountryColor = (geo) => {
@@ -147,12 +148,11 @@ export default function Home() {
     if (continent && continent === selectedContinent) {
       return CONTINENT_COLORS[continent] || '#4FC3F7';
     }
-    return '#2E75B6';
+    return '#1E3A5F';
   };
 
   const sendMessage = async () => {
     if (!chatInput.trim() || chatLoading) return;
-
     const userMessage = chatInput.trim();
     setChatInput('');
     setChatMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
@@ -168,7 +168,6 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage, marketContext }),
       });
-
       const data = await response.json();
       setChatMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
     } catch {
@@ -178,23 +177,45 @@ export default function Home() {
     }
   };
 
+  const accentColor = selectedContinent ? CONTINENT_COLORS[selectedContinent] : '#3B82F6';
+
   return (
-    <main className='min-h-screen bg-gray-900 flex flex-col items-center p-8'>
-      <h1 className='text-white text-4xl font-bold mb-2'>World Market Map</h1>
-      <p className='text-gray-400 mb-6'>Click a continent to explore its markets</p>
+    <div style={{ background: '#070B14', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
 
-      {selectedContinent && (
-        <div className='mb-4 px-6 py-2 rounded-full text-white font-semibold text-lg'
-          style={{ backgroundColor: CONTINENT_COLORS[selectedContinent] }}>
-          {selectedContinent}
+      {/* ── NAVBAR ── */}
+      <nav style={{ background: '#0D1321', borderBottom: '1px solid #1E2D45', padding: '0 32px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #3B82F6, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🌐</div>
+          <span style={{ color: 'white', fontWeight: 700, fontSize: 18, letterSpacing: '-0.3px' }}>World Market Map</span>
+          <span style={{ background: '#1E3A5F', color: '#60A5FA', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, letterSpacing: '0.5px' }}>LIVE</span>
         </div>
-      )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          {selectedContinent && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: accentColor, boxShadow: `0 0 8px ${accentColor}` }} />
+              <span style={{ color: '#94A3B8', fontSize: 13 }}>{selectedContinent}</span>
+            </div>
+          )}
+          <button
+            onClick={() => setChatOpen(!chatOpen)}
+            style={{ background: chatOpen ? accentColor : '#1E2D45', color: 'white', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            🤖 Ask AI
+          </button>
+        </div>
+      </nav>
 
-      <div className='flex w-full max-w-7xl gap-6 items-start'>
+      <div style={{ display: 'flex', height: 'calc(100vh - 60px)' }}>
 
-        {/* Map */}
-        <div className='flex-1'>
-          <ComposableMap style={{ width: '100%' }}>
+        {/* ── MAP SECTION ── */}
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          {/* Continent label overlay */}
+          {!selectedContinent && (
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none', zIndex: 10 }}>
+              <p style={{ color: '#334155', fontSize: 14, fontWeight: 500 }}>Click any continent to explore markets</p>
+            </div>
+          )}
+
+          <ComposableMap style={{ width: '100%', height: '100%' }} projectionConfig={{ scale: 147 }}>
             <ZoomableGroup>
               <Geographies geography={GEO_URL}>
                 {({ geographies }) =>
@@ -204,9 +225,9 @@ export default function Home() {
                       geography={geo}
                       onClick={() => handleCountryClick(geo)}
                       style={{
-                        default: { fill: getCountryColor(geo), stroke: '#1A375E', strokeWidth: 0.5, outline: 'none' },
-                        hover: { fill: '#4FC3F7', cursor: 'pointer', outline: 'none' },
-                        pressed: { fill: '#1A375E', outline: 'none' },
+                        default: { fill: getCountryColor(geo), stroke: '#0D1321', strokeWidth: 0.5, outline: 'none' },
+                        hover: { fill: '#60A5FA', cursor: 'pointer', outline: 'none' },
+                        pressed: { fill: '#1E40AF', outline: 'none' },
                       }}
                     />
                   ))
@@ -216,147 +237,183 @@ export default function Home() {
           </ComposableMap>
         </div>
 
-        {/* Right Panel */}
+        {/* ── RIGHT PANEL ── */}
         {selectedContinent && (
-          <div className='flex flex-row gap-4 self-start mt-8 w-96'>
+          <div style={{ width: 340, background: '#0D1321', borderLeft: '1px solid #1E2D45', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
-            {/* Market Data Card */}
-            <div className='bg-gray-800 rounded-2xl p-6 w-64'>
-              <h2 className='text-white text-xl font-bold mb-4'>
-                {selectedContinent === 'North America' ? '🇺🇸 US Stock Market' : `${selectedContinent} Markets`}
-              </h2>
+            {/* Panel header */}
+            <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #1E2D45', background: '#0A0E1A' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: accentColor }} />
+                    <span style={{ color: '#94A3B8', fontSize: 12, fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase' }}>{selectedContinent}</span>
+                  </div>
+                  <h2 style={{ color: 'white', fontSize: 18, fontWeight: 700, margin: 0 }}>
+                    {selectedContinent === 'North America' ? 'US Markets' : `${selectedContinent} Markets`}
+                  </h2>
+                </div>
+                <button onClick={() => setSelectedContinent(null)} style={{ background: '#1E2D45', border: 'none', color: '#64748B', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', fontSize: 14 }}>✕</button>
+              </div>
+            </div>
 
-              {loadingMarket && <p className='text-gray-400 text-sm'>Loading market data...</p>}
-              {error && <p className='text-red-400 text-sm'>{error}</p>}
+            {/* Market data */}
+            <div style={{ padding: '16px 20px' }}>
+              <p style={{ color: '#475569', fontSize: 11, fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 12 }}>Live Indices</p>
+
+              {loadingMarket && (
+                <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Loading market data...</div>
+              )}
 
               {marketData && !loadingMarket && (
-                <div className='flex flex-col gap-3'>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {marketData.indices.map((index) => (
-                    <div key={index.name} className='bg-gray-700 rounded-xl p-4'>
-                      <p className='text-gray-400 text-sm'>{index.name}</p>
-                      <p className='text-white text-lg font-bold'>{index.value}</p>
-                      <p className={`text-sm font-semibold ${index.up ? 'text-green-400' : 'text-red-400'}`}>
-                        {index.change}
-                      </p>
+                    <div key={index.name} style={{ background: '#111827', border: '1px solid #1E2D45', borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <p style={{ color: '#64748B', fontSize: 11, fontWeight: 500, margin: '0 0 2px' }}>{index.name}</p>
+                        <p style={{ color: 'white', fontSize: 16, fontWeight: 700, margin: 0 }}>{index.value}</p>
+                      </div>
+                      <div style={{ background: index.up ? '#052E16' : '#2D0A0A', border: `1px solid ${index.up ? '#166534' : '#7F1D1D'}`, borderRadius: 6, padding: '4px 10px' }}>
+                        <span style={{ color: index.up ? '#4ADE80' : '#F87171', fontSize: 13, fontWeight: 700 }}>{index.change}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
 
-              {selectedContinent !== 'North America' && (
-                <p className='text-gray-400 text-sm'>Market data coming soon!</p>
+              {selectedContinent !== 'North America' && !loadingMarket && (
+                <div style={{ background: '#111827', border: '1px solid #1E2D45', borderRadius: 10, padding: 20, textAlign: 'center' }}>
+                  <p style={{ color: '#475569', fontSize: 13, margin: 0 }}>Market data for {selectedContinent} coming soon</p>
+                </div>
               )}
             </div>
 
-            {/* News Card */}
+            {/* News */}
             {selectedContinent === 'North America' && (
-              <div className='bg-gray-800 rounded-2xl p-6 w-48'>
-                <h2 className='text-white text-xl font-bold mb-4'>📰 Latest Market News</h2>
+              <div style={{ padding: '0 20px 20px' }}>
+                <p style={{ color: '#475569', fontSize: 11, fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 12 }}>Latest News</p>
 
-                {loadingNews && <p className='text-gray-400 text-sm'>Loading news...</p>}
+                {loadingNews && (
+                  <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Loading news...</div>
+                )}
 
                 {newsData && !loadingNews && (
-                  <div className='flex flex-col gap-4'>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {newsData.articles.map((article, index) => (
-                      <a
-                        key={index}
-                        href={article.url}
-                        target='_blank'
-                        rel='noopener noreferrer'
-                        className='block border-b border-gray-700 pb-3 last:border-0 hover:opacity-80 transition'
-                      >
-                        <p className='text-white text-sm font-semibold leading-snug mb-1'>
-                          {article.headline}
-                        </p>
-                        <p className='text-gray-500 text-xs'>
-                          {article.source} · {article.time}
-                        </p>
+                      <a key={index} href={article.url} target='_blank' rel='noopener noreferrer'
+                        style={{ background: '#111827', border: '1px solid #1E2D45', borderRadius: 10, padding: '12px 14px', textDecoration: 'none', display: 'block', transition: 'border-color 0.2s' }}
+                        onMouseOver={(e) => e.currentTarget.style.borderColor = accentColor}
+                        onMouseOut={(e) => e.currentTarget.style.borderColor = '#1E2D45'}>
+                        <p style={{ color: '#E2E8F0', fontSize: 13, fontWeight: 600, margin: '0 0 6px', lineHeight: '1.4' }}>{article.headline}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ background: '#1E2D45', color: '#60A5FA', fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4 }}>{article.source}</span>
+                          <span style={{ color: '#475569', fontSize: 11 }}>{article.time}</span>
+                        </div>
                       </a>
                     ))}
                   </div>
                 )}
               </div>
             )}
-
           </div>
         )}
       </div>
-    {/* AI Chatbot */}
-      {selectedContinent === 'North America' && (
-        <div className='w-full max-w-7xl mt-6'>
-          <div className='bg-gray-800 rounded-2xl p-6'>
-            <h2 className='text-white text-xl font-bold mb-4'>🤖 Ask Claude — Market AI</h2>
-            
-            {/* Chat messages */}
-            <div className='flex flex-col gap-3 mb-4 max-h-64 overflow-y-auto'>
-              {chatMessages.length === 0 && (
-                <p className='text-gray-400 text-sm'>Ask me anything about the US market, stocks, or financial news!</p>
-              )}
-              {chatMessages.map((msg, index) => (
-                <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`rounded-xl px-4 py-2 max-w-2xl text-sm ${
-                    msg.role === 'user' 
-                      ? 'bg-orange-600 text-white' 
-                      : 'bg-gray-700 text-gray-100'
-                  }`}>
-                    {msg.role === 'assistant' ? (
-                      <div className='flex flex-col gap-1'>
-                        {msg.content.split('\n').map((line, i) => {
-                          if (line.startsWith('- ')) {
-                            return (
-                              <div key={i} className='flex gap-2'>
-                                <span className='text-orange-400 mt-0.5'>•</span>
-                                <span>{line.substring(2)}</span>
-                              </div>
-                            );
-                          }
-                          if (line.startsWith('Bottom Line:')) {
-                            return (
-                              <div key={i} className='mt-2 pt-2 border-t border-gray-600 font-semibold text-orange-300'>
-                                {line}
-                              </div>
-                            );
-                          }
-                          if (line.trim() === '') return null;
-                          return <p key={i}>{line}</p>;
-                        })}
-                      </div>
-                    ) : (
-                      msg.content
-                    )}
-                  </div>
-                </div>
-              ))}
-              {chatLoading && (
-                <div className='flex justify-start'>
-                  <div className='bg-gray-700 text-gray-400 rounded-xl px-4 py-2 text-sm'>
-                    Claude is thinking...
-                  </div>
-                </div>
-              )}
-            </div>
 
-            {/* Chat input */}
-            <div className='flex gap-3'>
-              <input
-                type='text'
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder='Ask about the market...'
-                className='flex-1 bg-gray-700 text-white rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-500'
-              />
-              <button
-                onClick={sendMessage}
-                disabled={chatLoading}
-                className='bg-orange-600 hover:bg-orange-500 text-white rounded-xl px-6 py-2 text-sm font-semibold disabled:opacity-50'
-              >
-                Send
-              </button>
+      {/* ── FLOATING CHAT PANEL ── */}
+      {chatOpen && (
+        <div style={{ position: 'fixed', bottom: 20, right: 20, width: 380, height: 520, background: '#0D1321', border: '1px solid #1E2D45', borderRadius: 16, display: 'flex', flexDirection: 'column', zIndex: 100, boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
+
+          {/* Chat header */}
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #1E2D45', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0A0E1A', borderRadius: '16px 16px 0 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #3B82F6, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🤖</div>
+              <div>
+                <p style={{ color: 'white', fontSize: 14, fontWeight: 700, margin: 0 }}>Market AI</p>
+                <p style={{ color: '#22C55E', fontSize: 11, margin: 0 }}>● Powered by Claude</p>
+              </div>
             </div>
+            <button onClick={() => setChatOpen(false)} style={{ background: '#1E2D45', border: 'none', color: '#64748B', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', fontSize: 14 }}>✕</button>
+          </div>
+
+          {/* Chat messages */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {chatMessages.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '30px 20px' }}>
+                <p style={{ color: '#334155', fontSize: 13, marginBottom: 16 }}>Ask me anything about global markets</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {['Why is the S&P 500 up today?', 'What is driving oil prices?', 'Explain what Nasdaq tracks'].map((q) => (
+                    <button key={q} onClick={() => { setChatInput(q); }} style={{ background: '#111827', border: '1px solid #1E2D45', color: '#60A5FA', borderRadius: 8, padding: '8px 12px', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>{q}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {chatMessages.map((msg, index) => (
+              <div key={index} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                <div style={{
+                  maxWidth: '85%',
+                  background: msg.role === 'user' ? accentColor : '#111827',
+                  border: msg.role === 'assistant' ? '1px solid #1E2D45' : 'none',
+                  borderRadius: msg.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                  padding: '10px 14px',
+                  fontSize: 13,
+                  color: 'white',
+                  lineHeight: '1.5',
+                }}>
+                  {msg.role === 'assistant' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {msg.content.split('\n').map((line, i) => {
+                        if (line.startsWith('- ')) {
+                          return (
+                            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                              <span style={{ color: accentColor, marginTop: 2, flexShrink: 0 }}>•</span>
+                              <span style={{ color: '#CBD5E1' }}>{line.substring(2)}</span>
+                            </div>
+                          );
+                        }
+                        if (line.startsWith('Bottom Line:')) {
+                          return (
+                            <div key={i} style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #1E2D45', color: '#F59E0B', fontWeight: 600 }}>{line}</div>
+                          );
+                        }
+                        if (line.trim() === '') return null;
+                        return <p key={i} style={{ margin: 0, color: '#CBD5E1' }}>{line}</p>;
+                      })}
+                    </div>
+                  ) : msg.content}
+                </div>
+              </div>
+            ))}
+
+            {chatLoading && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <div style={{ background: '#111827', border: '1px solid #1E2D45', borderRadius: '12px 12px 12px 4px', padding: '10px 16px', color: '#475569', fontSize: 13 }}>
+                  Analyzing markets...
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Chat input */}
+          <div style={{ padding: '12px 16px', borderTop: '1px solid #1E2D45', display: 'flex', gap: 8 }}>
+            <input
+              type='text'
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+              placeholder='Ask about the markets...'
+              style={{ flex: 1, background: '#111827', border: '1px solid #1E2D45', color: 'white', borderRadius: 8, padding: '10px 14px', fontSize: 13, outline: 'none' }}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={chatLoading}
+              style={{ background: accentColor, border: 'none', color: 'white', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: chatLoading ? 0.5 : 1 }}>
+              Send
+            </button>
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }

@@ -22,8 +22,9 @@ export default async function handler(req, res) {
         if (!meta) return { name: index.name, value: 'N/A', change: '0.00%', up: false };
 
         const price = meta.regularMarketPrice;
-        const prevClose = meta.chartPreviousClose;
-        const changePercent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
+        const prevClose = meta.regularMarketPreviousClose;
+        const changePercent = meta.regularMarketChangePercent ??
+          (prevClose ? ((price - prevClose) / prevClose) * 100 : 0);
 
         return {
           name: index.name,

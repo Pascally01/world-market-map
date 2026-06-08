@@ -19,6 +19,12 @@ const CITY_STOCKS = {
   'Montreal, Canada':    ['BCE','MG','CNR','L','QSR','AC','POW','IAG','EMP','NGT'],
   'Vancouver, Canada':   ['TECK','NTR','WPM','AGI','EQX','K','GOLD','AEM','FNV','FM'],
   'Mexico City, Mexico': ['AMX','FMX','KOF','CX','BSMX','TV','VIPS','ARCA','GAPB','ASURB'],
+  'Austin, TX':          ['TSLA','DELL','ORCL','SCHW','BMBL','CRUS','SWI','QTWO'],
+  'Washington, DC':      ['FNMA','FMCC','DHR','COF','MAR','GD','BAH','LDOS'],
+  'San Diego, CA':       ['QCOM','ILMN','SRE','RMD'],
+  'Nashville, TN':       ['HCA','TSCO','CYH','DK'],
+  'Columbus, OH':        ['CAH','AEP','BBWI','HBAN','ANF','BIG'],
+  'Las Vegas, NV':       ['WYNN','LVS','MGM','CZR'],
 };
 
 export default async function handler(req, res) {

@@ -148,6 +148,42 @@ const COMPANY_LOCATIONS = {
   'BA':    { lat: 38.9072, lng: -77.0369, city: 'Arlington, VA' },
   'LMT':   { lat: 38.9072, lng: -77.0369, city: 'Bethesda, MD' },
   'NOC':   { lat: 38.9072, lng: -77.0369, city: 'Falls Church, VA' },
+  // Austin, TX
+'DELL':  { lat: 30.5083, lng: -97.6789, city: 'Round Rock, TX' },
+'SCHW':  { lat: 32.9618, lng: -97.1081, city: 'Westlake, TX' },
+'BMBL':  { lat: 30.2672, lng: -97.7431, city: 'Austin, TX' },
+'CRUS':  { lat: 30.2672, lng: -97.7431, city: 'Austin, TX' },
+'SWI':   { lat: 30.2672, lng: -97.7431, city: 'Austin, TX' },
+'QTWO':  { lat: 30.2672, lng: -97.7431, city: 'Austin, TX' },
+// Washington, DC / N. Virginia
+'FNMA':  { lat: 38.9072, lng: -77.0369, city: 'Washington, DC' },
+'FMCC':  { lat: 38.9339, lng: -77.1773, city: 'McLean, VA' },
+'DHR':   { lat: 38.9072, lng: -77.0369, city: 'Washington, DC' },
+'COF':   { lat: 38.9339, lng: -77.1773, city: 'McLean, VA' },
+'MAR':   { lat: 38.9847, lng: -77.0947, city: 'Bethesda, MD' },
+'GD':    { lat: 38.9586, lng: -77.3570, city: 'Reston, VA' },
+'BAH':   { lat: 38.9339, lng: -77.1773, city: 'McLean, VA' },
+'LDOS':  { lat: 38.9586, lng: -77.3570, city: 'Reston, VA' },
+// San Diego, CA
+'ILMN':  { lat: 32.7157, lng: -117.1611, city: 'San Diego, CA' },
+'SRE':   { lat: 32.7157, lng: -117.1611, city: 'San Diego, CA' },
+'RMD':   { lat: 32.7157, lng: -117.1611, city: 'San Diego, CA' },
+// Nashville, TN
+'HCA':   { lat: 36.1627, lng: -86.7816, city: 'Nashville, TN' },
+'TSCO':  { lat: 36.0331, lng: -86.7828, city: 'Brentwood, TN' },
+'CYH':   { lat: 35.9251, lng: -86.8689, city: 'Franklin, TN' },
+'DK':    { lat: 36.0331, lng: -86.7828, city: 'Brentwood, TN' },
+// Columbus, OH
+'AEP':   { lat: 39.9612, lng: -82.9988, city: 'Columbus, OH' },
+'BBWI':  { lat: 39.9612, lng: -82.9988, city: 'Columbus, OH' },
+'HBAN':  { lat: 39.9612, lng: -82.9988, city: 'Columbus, OH' },
+'ANF':   { lat: 40.0815, lng: -82.8088, city: 'New Albany, OH' },
+'BIG':   { lat: 39.9612, lng: -82.9988, city: 'Columbus, OH' },
+// Las Vegas, NV
+'WYNN':  { lat: 36.1699, lng: -115.1398, city: 'Las Vegas, NV' },
+'LVS':   { lat: 36.1699, lng: -115.1398, city: 'Las Vegas, NV' },
+'MGM':   { lat: 36.1699, lng: -115.1398, city: 'Las Vegas, NV' },
+'CZR':   { lat: 39.5296, lng: -119.8138, city: 'Reno, NV' },
 };
 
 export default function Home() {
@@ -164,6 +200,11 @@ export default function Home() {
   const [searchResult, setSearchResult] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchMarker, setSearchMarker] = useState(null);
+  const [outletQuery, setOutletQuery] = useState('');
+  const [outletNews, setOutletNews] = useState(null);
+  const [outletLoading, setOutletLoading] = useState(false);
+  const [outletError, setOutletError] = useState(null);
+  const [outletCollapsed, setOutletCollapsed] = useState(false);
   const chatEndRef = useRef(null);
   const [chatPos, setChatPos] = useState(null);
   const dragState = useRef({ dragging: false, offsetX: 0, offsetY: 0 });
@@ -309,6 +350,28 @@ const startChatResize = (e) => {
       setSearchResult({ error: 'Search failed' });
     } finally {
       setSearchLoading(false);
+    }
+  };
+
+  const TOP_OUTLETS = ['Fox News', 'CNN', 'CNBC', 'Reuters', 'Bloomberg', 'WSJ', 'Washington Post', 'ABC News', 'CBS News', 'NBC News', 'USA Today', 'AP'];
+
+  const searchOutlet = async (name) => {
+    const query = (name ?? outletQuery).trim();
+    if (!query) return;
+    setOutletQuery(query);
+    setOutletLoading(true);
+    setOutletNews(null);
+    setOutletError(null);
+    setOutletCollapsed(false);
+    try {
+      const res = await fetch(`/api/outletnews?outlet=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      if (data.error) setOutletError(data.error);
+      else setOutletNews(data.articles);
+    } catch {
+      setOutletError('Search failed. Try again.');
+    } finally {
+      setOutletLoading(false);
     }
   };
 
@@ -517,6 +580,58 @@ const startChatResize = (e) => {
                         </div>
                       </a>
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedContinent === 'North America' && (
+              <div style={{ padding: '0 20px 20px' }}>
+                <p style={{ color: '#475569', fontSize: 11, fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 10 }}>Search News by Outlet</p>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  <input
+                    type="text"
+                    value={outletQuery}
+                    onChange={(e) => setOutletQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && searchOutlet()}
+                    placeholder="e.g. Fox News, CNN, Bloomberg"
+                    style={{ flex: 1, background: '#111827', border: '1px solid #1E2D45', color: 'white', borderRadius: 8, padding: '8px 12px', fontSize: 13, outline: 'none' }}
+                  />
+                  <button onClick={() => searchOutlet()} disabled={outletLoading} style={{ background: accentColor, border: 'none', color: 'white', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                    {outletLoading ? '...' : 'GO'}
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                  {TOP_OUTLETS.map((name) => (
+                    <button key={name} onClick={() => searchOutlet(name)} style={{ background: '#111827', border: '1px solid #1E2D45', color: '#60A5FA', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>
+                      {name}
+                    </button>
+                  ))}
+                </div>
+                {outletError && <p style={{ color: '#EF4444', fontSize: 12 }}>{outletError}</p>}
+                {outletNews && (
+                  <div>
+                    <button
+                      onClick={() => setOutletCollapsed(!outletCollapsed)}
+                      style={{ background: 'transparent', border: '1px solid #1E2D45', color: '#94A3B8', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      {outletCollapsed ? '▸ Show results' : '▾ Hide results'}
+                      <span style={{ color: '#475569' }}>({outletNews.length})</span>
+                    </button>
+                    {!outletCollapsed && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {outletNews.map((article, i) => (
+                          <a key={i} href={article.url} target="_blank" rel="noopener noreferrer"
+                            style={{ background: '#111827', border: '1px solid #1E2D45', borderRadius: 10, padding: '12px 14px', textDecoration: 'none', display: 'block' }}>
+                            <p style={{ color: '#E2E8F0', fontSize: 13, fontWeight: 600, margin: '0 0 6px', lineHeight: '1.4' }}>{article.headline}</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ background: '#1E2D45', color: '#60A5FA', fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4 }}>{article.source}</span>
+                              <span style={{ color: '#475569', fontSize: 11 }}>{article.time}</span>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

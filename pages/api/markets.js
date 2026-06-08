@@ -10,33 +10,33 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
   try {
-    const symbols = INDICES.map((i) => i.symbol).join('%2C');
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
+    const results = await Promise.all(
+      INDICES.map(async (index) => {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${index.symbol}?interval=1d&range=5d`;
+        const response = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+        });
+        const data = await response.json();
+        const meta = data.chart?.result?.[0]?.meta;
 
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-    });
+        if (!meta) return { name: index.name, value: 'N/A', change: '0.00%', up: false };
 
-    const data = await response.json();
-    const quotes = data.quoteResponse?.result;
+        const price = meta.regularMarketPrice;
+        const prevClose = meta.chartPreviousClose;
+        const changePercent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
 
-    if (!quotes || quotes.length === 0) {
-      return res.status(200).json({ indices: [] });
-    }
+        return {
+          name: index.name,
+          value: price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          change: `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`,
+          up: changePercent >= 0,
+        };
+      })
+    );
 
-    const indices = INDICES.map((index, i) => {
-      const q = quotes[i];
-      const change = q?.regularMarketChangePercent ?? 0;
-      return {
-        name: index.name,
-        value: q?.regularMarketPrice?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? 'N/A',
-        change: `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`,
-        up: change >= 0,
-      };
-    });
-
-    res.status(200).json({ indices });
+    res.status(200).json({ indices: results });
   } catch (error) {
+    console.error('Markets API error:', error);
     res.status(500).json({ error: 'Failed to fetch market data' });
   }
 }

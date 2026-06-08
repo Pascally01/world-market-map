@@ -72,6 +72,7 @@ export default async function handler(req, res) {
       cities[city] = symbols.map((sym) => quoteMap[sym]).filter(Boolean);
     });
 
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.status(200).json({ cities });
   } catch (error) {
     console.error(error);
